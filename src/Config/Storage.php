@@ -25,11 +25,6 @@ class Storage extends BaseConfig
     public string $signedRoutePrefix = 'storage/signed';
 
     /**
-     * Preferred image manipulation driver ('gd' or 'imagick').
-     */
-    public string $imageDriver = 'gd';
-
-    /**
      * Configured filesystem disks.
      */
     public array $disks = [

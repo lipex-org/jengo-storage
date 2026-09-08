@@ -19,14 +19,14 @@ class ImagePipeline
         protected ?FilesystemInterface $filesystem = null,
         protected ?string $sourcePath = null,
         ?string $binary = null,
-        protected string $driver = 'gd'
+        protected ?string $driver = null
     ) {
         if ($binary !== null) {
             $this->binary = $binary;
         }
     }
 
-    public static function fromBinary(string $binary, string $driver = 'gd'): self
+    public static function fromBinary(string $binary, ?string $driver = null): self
     {
         return new self(null, null, $binary, $driver);
     }
@@ -193,12 +193,31 @@ class ImagePipeline
         $this->loaded = true;
     }
 
+    /**
+     * Determine the available image driver at runtime.
+     */
+    public static function determineDriver(): string
+    {
+        if (extension_loaded('imagick') && class_exists(\Imagick::class)) {
+            return 'imagick';
+        }
+
+        if (extension_loaded('gd')) {
+            return 'gd';
+        }
+
+        throw \Jengo\Storage\Exceptions\ImageProcessingException::noDriverAvailable();
+    }
+
     public function getTransformer(): ImageTransformerInterface
     {
         if ($this->transformer === null) {
-            $this->transformer = match (strtolower($this->driver)) {
+            $driver = $this->driver ?? static::determineDriver();
+
+            $this->transformer = match (strtolower($driver)) {
                 'imagick' => new ImagickDriver(),
-                default   => new GdDriver(),
+                'gd'      => new GdDriver(),
+                default   => throw \Jengo\Storage\Exceptions\ImageProcessingException::driverUnavailable($driver),
             };
         }
 

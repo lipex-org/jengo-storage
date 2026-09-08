@@ -20,4 +20,9 @@ class ImageProcessingException extends StorageException
     {
         return new self("Failed to decode image from binary stream.");
     }
+
+    public static function noDriverAvailable(): self
+    {
+        return new self("No image processing extension found. jengo/storage requires either the GD ('ext-gd') or Imagick ('ext-imagick') PHP extension to be enabled.");
+    }
 }

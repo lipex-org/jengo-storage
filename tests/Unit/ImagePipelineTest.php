@@ -122,4 +122,13 @@ class ImagePipelineTest extends TestCase
         $this->assertTrue($disk->exists('thumbnails/variant_sm_100.webp'));
         $this->assertTrue($disk->exists('thumbnails/variant_xs_50.webp'));
     }
+
+    public function test_auto_detects_driver_at_runtime(): void
+    {
+        $driver = ImagePipeline::determineDriver();
+        $this->assertContains($driver, ['gd', 'imagick']);
+
+        $pipeline = ImagePipeline::fromBinary($this->sampleImageBinary);
+        $this->assertInstanceOf(\Jengo\Storage\Contracts\ImageTransformerInterface::class, $pipeline->getTransformer());
+    }
 }

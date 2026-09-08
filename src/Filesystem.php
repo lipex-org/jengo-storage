@@ -391,9 +391,7 @@ class Filesystem implements CloudFilesystemInterface
 
     public function image(string $path): ImagePipeline
     {
-        $driver = $this->config['image_driver'] ?? 'gd';
-
-        return new ImagePipeline($this, $path, null, $driver);
+        return new ImagePipeline($this, $path);
     }
 
     protected function buildConfig(?string $visibility = null): array

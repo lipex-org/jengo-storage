@@ -113,9 +113,6 @@ class FilesystemManager
 
         $driver = $config['driver'] ?? 'local';
 
-        // Add global image driver configuration to disk config
-        $config['image_driver'] = $config['image_driver'] ?? $this->config->imageDriver ?? 'gd';
-
         if (isset($this->customCreators[$driver])) {
             return $this->customCreators[$driver]($config, $this);
         }
