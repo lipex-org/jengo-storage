@@ -128,6 +128,9 @@ class ChunkUploadController extends Controller
         if (function_exists('set_time_limit')) {
             @set_time_limit(0);
         }
+        if (function_exists('ini_set')) {
+            @ini_set('memory_limit', '512M');
+        }
         @ignore_user_abort(true);
 
         $json = $this->request->getJSON(true) ?? [];
@@ -226,6 +229,13 @@ class ChunkUploadController extends Controller
             $safeName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', basename($rawFilename));
             $uniquePrefix = time() . '_' . substr(md5(uniqid('', true)), 0, 8);
             $destination = ($folder !== '' ? $folder . '/' : '') . $uniquePrefix . '_' . $safeName;
+
+            $fileSizeBytes = (int) @filesize($tempMerged);
+            if ($targetDisk === 'memory' && $fileSizeBytes > 10 * 1024 * 1024) {
+                throw new RuntimeException(
+                    'Cannot store file (' . round($fileSizeBytes / (1024 * 1024), 1) . ' MB) on virtual "memory" disk. The in-memory adapter stores files in PHP process RAM and is intended for lightweight testing. Please select a persistent disk such as "public" or "local".'
+                );
+            }
 
             $disk = Storage::disk($targetDisk);
             $readStream = fopen($tempMerged, 'rb');
