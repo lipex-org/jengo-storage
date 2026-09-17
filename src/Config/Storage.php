@@ -25,6 +25,11 @@ class Storage extends BaseConfig
     public string $signedRoutePrefix = 'storage/signed';
 
     /**
+     * Base temporary directory path for storage staging and chunk assembly.
+     */
+    public string $tempPath = WRITEPATH . 'storage/temp';
+
+    /**
      * Configured filesystem disks.
      */
     public array $disks = [

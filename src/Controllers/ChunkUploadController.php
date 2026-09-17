@@ -6,19 +6,32 @@ namespace Jengo\Storage\Controllers;
 
 use CodeIgniter\Controller;
 use CodeIgniter\HTTP\ResponseInterface;
+use Jengo\Storage\Config\Storage as StorageConfig;
 use Jengo\Storage\Security\FileSanitizer;
 use Jengo\Storage\Storage;
+use RuntimeException;
 use Throwable;
 
 class ChunkUploadController extends Controller
 {
+    /**
+     * Base temporary directory path for storage staging.
+     */
+    protected function getTempPath(): string
+    {
+        /** @var StorageConfig|null $config */
+        $config = config(StorageConfig::class);
+        $temp = ! empty($config?->tempPath) ? $config->tempPath : WRITEPATH . 'storage/temp';
+        return rtrim($temp, '/\\');
+    }
+
     /**
      * Directory path where temporary chunk parts are staged.
      */
     protected function getChunkDir(string $uuid): string
     {
         $cleanUuid = preg_replace('/[^a-zA-Z0-9_-]/', '', $uuid);
-        return WRITEPATH . 'storage/temp/chunks/' . $cleanUuid;
+        return $this->getTempPath() . '/chunks/' . $cleanUuid;
     }
 
     /**
@@ -158,8 +171,8 @@ class ChunkUploadController extends Controller
             ])->setStatusCode(400);
         }
 
-        // Create a temporary stream to concatenate all chunks
-        $tempMerged = tempnam(sys_get_temp_dir(), 'jengo_chunk_');
+        // Place temporary merged file inside the session chunk directory on the persistent partition
+        $tempMerged = $chunkDir . '/assembled_' . bin2hex(random_bytes(8)) . '.tmp';
         $outStream = fopen($tempMerged, 'wb');
 
         if ($outStream === false) {
@@ -169,57 +182,71 @@ class ChunkUploadController extends Controller
             ])->setStatusCode(500);
         }
 
-        for ($i = 0; $i < $totalChunks; $i++) {
-            $partPath = $chunkDir . '/' . $i . '.part';
-            $inStream = fopen($partPath, 'rb');
-            if ($inStream !== false) {
-                stream_copy_to_stream($inStream, $outStream);
-                fclose($inStream);
-            }
-        }
-
-        fclose($outStream);
-
-        // Compute and verify final file checksum on the local merged stream
-        $actualHash = (string) hash_file('sha256', $tempMerged);
-        if ($expectedChecksum !== '' && ! hash_equals($expectedChecksum, $actualHash)) {
-            @unlink($tempMerged);
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Assembled file checksum verification failed.',
-            ])->setStatusCode(422);
-        }
-
-        // Sanitize filename and construct destination path
-        $safeName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', basename($rawFilename));
-        $uniquePrefix = time() . '_' . substr(md5(uniqid('', true)), 0, 8);
-        $destination = ($folder !== '' ? $folder . '/' : '') . $uniquePrefix . '_' . $safeName;
+        $hashContext = hash_init('sha256');
 
         try {
+            for ($i = 0; $i < $totalChunks; $i++) {
+                $partPath = $chunkDir . '/' . $i . '.part';
+                $inStream = fopen($partPath, 'rb');
+                if ($inStream === false) {
+                    throw new RuntimeException("Failed to open chunk part [{$i}].");
+                }
+
+                while (! feof($inStream)) {
+                    $buffer = fread($inStream, 2097152); // 2 MB buffer
+                    if ($buffer === false || $buffer === '') {
+                        break;
+                    }
+                    if (fwrite($outStream, $buffer) === false) {
+                        fclose($inStream);
+                        throw new RuntimeException("Failed writing chunk part [{$i}] to assembly stream.");
+                    }
+                    hash_update($hashContext, $buffer);
+                }
+
+                fclose($inStream);
+                @unlink($partPath); // Free chunk space immediately as it is merged
+            }
+
+            fclose($outStream);
+            $outStream = null;
+
+            $actualHash = hash_final($hashContext);
+
+            if ($expectedChecksum !== '' && ! hash_equals($expectedChecksum, $actualHash)) {
+                @unlink($tempMerged);
+                $this->removeDirectory($chunkDir);
+                return $this->response->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Assembled file checksum verification failed.',
+                ])->setStatusCode(422);
+            }
+
+            // Sanitize filename and construct destination path
+            $safeName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', basename($rawFilename));
+            $uniquePrefix = time() . '_' . substr(md5(uniqid('', true)), 0, 8);
+            $destination = ($folder !== '' ? $folder . '/' : '') . $uniquePrefix . '_' . $safeName;
+
             $disk = Storage::disk($targetDisk);
             $readStream = fopen($tempMerged, 'rb');
 
             if ($readStream === false) {
-                @unlink($tempMerged);
-                return $this->response->setJSON([
-                    'status'  => 'error',
-                    'message' => 'Failed to read assembled file.',
-                ])->setStatusCode(500);
+                throw new RuntimeException('Failed to open assembled file for writing to target disk.');
             }
 
-            $disk->writeStream($destination, $readStream);
-            if (is_resource($readStream)) {
-                fclose($readStream);
+            try {
+                $disk->writeStream($destination, $readStream);
+            } finally {
+                if (is_resource($readStream)) {
+                    fclose($readStream);
+                }
             }
 
             @unlink($tempMerged);
-
-            // Clean up chunk parts directory
             $this->removeDirectory($chunkDir);
 
             $fileSize = $disk->size($destination);
             $mimeType = $disk->mimeType($destination) ?: 'application/octet-stream';
-            $checksum = $actualHash;
 
             $fileUrl = $targetDisk === 'public'
                 ? $disk->url($destination)
@@ -233,13 +260,18 @@ class ChunkUploadController extends Controller
                 'url'       => $fileUrl,
                 'size'      => $fileSize,
                 'mime'      => $mimeType,
-                'checksum'  => $checksum,
+                'checksum'  => $actualHash,
             ]);
         } catch (Throwable $e) {
+            if (is_resource($outStream)) {
+                fclose($outStream);
+            }
             @unlink($tempMerged);
+            $this->removeDirectory($chunkDir);
+
             return $this->response->setJSON([
                 'status'  => 'error',
-                'message' => 'Failed to write assembled file to storage: ' . $e->getMessage(),
+                'message' => 'Failed to assemble chunked file: ' . $e->getMessage(),
             ])->setStatusCode(500);
         }
     }
