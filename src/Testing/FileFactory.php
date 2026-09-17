@@ -52,8 +52,6 @@ class FileFactory
             })(),
         };
 
-        imagedestroy($im);
-
         $size = filesize($tempPath);
 
         return new UploadedFile(

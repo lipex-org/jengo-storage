@@ -24,7 +24,6 @@ class ImagePipelineTest extends TestCase
         ob_start();
         imagepng($im);
         $this->sampleImageBinary = (string) ob_get_clean();
-        imagedestroy($im);
     }
 
     public function test_loads_image_and_inspects_dimensions(): void
@@ -95,7 +94,6 @@ class ImagePipelineTest extends TestCase
         ob_start();
         imagepng($wm);
         $wmBinary = (string) ob_get_clean();
-        imagedestroy($wm);
 
         $pipeline = ImagePipeline::fromBinary($this->sampleImageBinary);
         $pipeline->watermark($wmBinary, 'bottom-right', 80);

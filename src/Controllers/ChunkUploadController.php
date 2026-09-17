@@ -112,6 +112,11 @@ class ChunkUploadController extends Controller
      */
     public function assemble(): ResponseInterface
     {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(0);
+        }
+        @ignore_user_abort(true);
+
         $json = $this->request->getJSON(true) ?? [];
 
         $uuid             = (string) ($this->request->getPost('file_uuid') ?? $json['file_uuid'] ?? '');
@@ -175,16 +180,14 @@ class ChunkUploadController extends Controller
 
         fclose($outStream);
 
-        // Verify final file checksum if provided
-        if ($expectedChecksum !== '') {
-            $actualHash = hash_file('sha256', $tempMerged);
-            if (! hash_equals($expectedChecksum, (string) $actualHash)) {
-                @unlink($tempMerged);
-                return $this->response->setJSON([
-                    'status'  => 'error',
-                    'message' => 'Assembled file checksum verification failed.',
-                ])->setStatusCode(422);
-            }
+        // Compute and verify final file checksum on the local merged stream
+        $actualHash = (string) hash_file('sha256', $tempMerged);
+        if ($expectedChecksum !== '' && ! hash_equals($expectedChecksum, $actualHash)) {
+            @unlink($tempMerged);
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'Assembled file checksum verification failed.',
+            ])->setStatusCode(422);
         }
 
         // Sanitize filename and construct destination path
@@ -216,7 +219,7 @@ class ChunkUploadController extends Controller
 
             $fileSize = $disk->size($destination);
             $mimeType = $disk->mimeType($destination) ?: 'application/octet-stream';
-            $checksum = $disk->checksum($destination, ['algo' => 'sha256']);
+            $checksum = $actualHash;
 
             $fileUrl = $targetDisk === 'public'
                 ? $disk->url($destination)

@@ -103,6 +103,11 @@ class Filesystem implements CloudFilesystemInterface
         }
     }
 
+    public function putStream(string $path, $resource, ?string $visibility = null): bool
+    {
+        return $this->writeStream($path, $resource, $visibility);
+    }
+
     public function getVisibility(string $path): string
     {
         $clean = FileSanitizer::sanitizePath($path);
@@ -222,10 +227,25 @@ class Filesystem implements CloudFilesystemInterface
                 return $this->operator->checksum($clean, $options);
             }
         } catch (UnableToProvideChecksum|\BadMethodCallException) {
-            // Fall back to computing checksum manually
+            // Fall back to computing checksum via stream
         }
 
-        return hash($algo, $this->get($clean));
+        $stream = $this->readStream($clean);
+        $context = hash_init($algo);
+
+        while (! feof($stream)) {
+            $chunk = fread($stream, 1048576); // 1 MB buffer
+            if ($chunk === false || $chunk === '') {
+                break;
+            }
+            hash_update($context, $chunk);
+        }
+
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
+
+        return hash_final($context);
     }
 
     public function files(?string $directory = null, bool $recursive = false): array

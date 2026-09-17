@@ -24,10 +24,7 @@ class GdDriver implements ImageTransformerInterface
 
     public function __destruct()
     {
-        if ($this->image instanceof GdImage) {
-            imagedestroy($this->image);
-            $this->image = null;
-        }
+        $this->image = null;
     }
 
     public function load(string $binary): static
@@ -35,10 +32,6 @@ class GdDriver implements ImageTransformerInterface
         $loaded = @imagecreatefromstring($binary);
         if ($loaded === false) {
             throw ImageProcessingException::decodingFailed();
-        }
-
-        if ($this->image instanceof GdImage) {
-            imagedestroy($this->image);
         }
 
         $this->image = $loaded;
@@ -87,7 +80,6 @@ class GdDriver implements ImageTransformerInterface
             $this->getHeight()
         );
 
-        imagedestroy($this->image);
         $this->image = $canvas;
 
         return $this;
@@ -116,7 +108,6 @@ class GdDriver implements ImageTransformerInterface
             $cropWidth, $cropHeight
         );
 
-        imagedestroy($this->image);
         $this->image = $canvas;
 
         return $this;
@@ -198,8 +189,6 @@ class GdDriver implements ImageTransformerInterface
         } else {
             imagecopymerge($this->image, $wm, $x, $y, 0, 0, $wmWidth, $wmHeight, max(0, min(100, $opacity)));
         }
-
-        imagedestroy($wm);
 
         return $this;
     }
