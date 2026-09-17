@@ -45,10 +45,24 @@ class StorageCleanupCommand extends BaseCommand
                 if (@unlink($fullPath)) {
                     $deletedCount++;
                 }
+            } elseif (is_dir($fullPath) && filemtime($fullPath) < $threshold) {
+                // Recursively clean old chunk folders
+                $subFiles = scandir($fullPath) ?: [];
+                foreach ($subFiles as $sub) {
+                    if ($sub !== '.' && $sub !== '..') {
+                        $subPath = $fullPath . DIRECTORY_SEPARATOR . $sub;
+                        if (is_file($subPath)) {
+                            $freedBytes += filesize($subPath);
+                            @unlink($subPath);
+                            $deletedCount++;
+                        }
+                    }
+                }
+                @rmdir($fullPath);
             }
         }
 
         $mb = round($freedBytes / (1024 * 1024), 2);
-        CLI::write("Cleaned up {$deletedCount} orphaned temporary files ({$mb} MB freed).", 'green');
+        CLI::write("Cleaned up {$deletedCount} orphaned temporary files/parts ({$mb} MB freed).", 'green');
     }
 }
