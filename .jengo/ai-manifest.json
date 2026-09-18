@@ -1,0 +1,134 @@
+{
+  "name": "jengo/storage",
+  "description": "Unified multi-disk file management, cloud storage abstraction (Local, S3, Cloudflare R2, Memory), chunked resumable uploads, temporary signed URL security, image manipulation pipelines (GD/Imagick), and testing doubles for CodeIgniter 4 and the Jengo Framework.",
+  "version": "1.0.0",
+  "facade": {
+    "class": "Jengo\\Storage\\Storage",
+    "description": "Primary static entry point for file operations, multi-disk resolution, signed URLs, image transforms, and test doubles.",
+    "methods": {
+      "disk": "Storage::disk(?string $name = null): FilesystemInterface (access specific disk or default)",
+      "exists": "Storage::exists(string $path): bool (checks file existence)",
+      "missing": "Storage::missing(string $path): bool (checks if file is absent)",
+      "get": "Storage::get(string $path): string (reads file contents)",
+      "put": "Storage::put(string $path, string $contents, ?string $visibility = null): bool (writes file contents)",
+      "delete": "Storage::delete(string|array $paths): bool (deletes one or multiple files)",
+      "copy": "Storage::copy(string $from, string $to): bool (copies file)",
+      "move": "Storage::move(string $from, string $to): bool (moves/renames file)",
+      "size": "Storage::size(string $path): int (returns file size in bytes)",
+      "lastModified": "Storage::lastModified(string $path): int (returns Unix timestamp of modification)",
+      "mimeType": "Storage::mimeType(string $path): string|false (detects MIME type)",
+      "checksum": "Storage::checksum(string $path, array $options = []): string (computes hash checksum)",
+      "files": "Storage::files(?string $directory = null, bool $recursive = false): array (lists files in directory)",
+      "allFiles": "Storage::allFiles(?string $directory = null): array (recursively lists all files)",
+      "directories": "Storage::directories(?string $directory = null, bool $recursive = false): array (lists subdirectories)",
+      "allDirectories": "Storage::allDirectories(?string $directory = null): array (recursively lists subdirectories)",
+      "makeDirectory": "Storage::makeDirectory(string $path): bool (creates directory)",
+      "deleteDirectory": "Storage::deleteDirectory(string $directory): bool (deletes directory and all contents)",
+      "url": "Storage::url(string $path): string (returns public asset URL)",
+      "temporaryUrl": "Storage::temporaryUrl(string $path, int|DateTimeInterface $expiration, array $options = []): string (generates time-limited signed URL)",
+      "createUploadUrl": "Storage::createUploadUrl(string $path, array $options = []): PresignedUpload (generates presigned direct upload URL)",
+      "image": "Storage::image(string $path): ImagePipeline (initiates image transformation pipeline)",
+      "fake": "Storage::fake(string|array $diskNames = 'local'): StorageFake|array (swaps disks with in-memory test doubles)"
+    },
+    "usage": "Storage::disk('s3')->put('reports/2026.pdf', $pdfData);"
+  },
+  "drivers": [
+    {
+      "name": "local",
+      "class": "Jengo\\Storage\\Drivers\\LocalDriver",
+      "description": "Local filesystem driver storing files in writable/ directory with configurable permissions and public symlink integration."
+    },
+    {
+      "name": "s3",
+      "class": "Jengo\\Storage\\Drivers\\S3Driver",
+      "description": "Amazon S3 and S3-compatible cloud storage driver supporting AWS, Cloudflare R2, MinIO, and Wasabi with direct multipart presigned uploads."
+    },
+    {
+      "name": "memory",
+      "class": "Jengo\\Storage\\Drivers\\MemoryDriver",
+      "description": "In-memory filesystem driver for rapid zero-I/O testing and isolated environments."
+    }
+  ],
+  "image_processing": {
+    "class": "Jengo\\Storage\\Images\\ImagePipeline",
+    "entry_point": "Storage::image(string $path)",
+    "description": "Fluent image transformation pipeline supporting resizing, cropping, fitting, format conversion, and quality compression.",
+    "methods": [
+      "resize(int $width, int $height): self",
+      "crop(int $width, int $height, ?int $x = null, ?int $y = null): self",
+      "fit(int $width, int $height): self",
+      "format(string $format): self (jpeg, png, webp, gif, avif)",
+      "quality(int $quality): self (1-100)",
+      "save(?string $path = null): string (saves transformed image back to disk)",
+      "encode(): string (returns raw binary image data)"
+    ],
+    "drivers": [
+      "Jengo\\Storage\\Images\\Drivers\\GdDriver",
+      "Jengo\\Storage\\Images\\Drivers\\ImagickDriver"
+    ],
+    "usage": "Storage::image('avatars/user.jpg')->fit(300, 300)->format('webp')->quality(85)->save('avatars/user_thumb.webp');"
+  },
+  "uploads_and_signed_urls": {
+    "signed_controller": "Jengo\\Storage\\Controllers\\SignedStorageController",
+    "chunk_controller": "Jengo\\Storage\\Controllers\\ChunkUploadController",
+    "url_signer": "Jengo\\Storage\\Security\\HmacUrlSigner",
+    "routes": [
+      "GET /storage/signed/{path} (serves HMAC-signed private files with expiration validation)",
+      "POST /storage/upload/chunk (accepts multipart binary chunks for resumable large uploads)",
+      "POST /storage/upload/complete (assembles chunks and verifies checksum upon completion)"
+    ]
+  },
+  "testing": {
+    "fake": "Jengo\\Storage\\Testing\\StorageFake",
+    "activation": "Storage::fake(?string $disk = null)",
+    "factory": "Jengo\\Storage\\Testing\\FileFactory",
+    "trait": "Jengo\\Storage\\Testing\\AssertionsTrait",
+    "factory_methods": [
+      "FileFactory::fake(string $name, int $kilobytes = 0): UploadedFile",
+      "FileFactory::image(string $name, int $width = 10, int $height = 10): UploadedFile"
+    ],
+    "assertions": [
+      "$this->assertStorageExists(string $path, ?string $disk = null)",
+      "$this->assertStorageMissing(string $path, ?string $disk = null)",
+      "$this->assertStorageDirectoryExists(string $path, ?string $disk = null)",
+      "$this->assertStorageDirectoryMissing(string $path, ?string $disk = null)",
+      "$this->assertStorageEquals(string $path, string $expected, ?string $disk = null)"
+    ]
+  },
+  "helpers": [
+    {
+      "name": "storage",
+      "signature": "storage(?string $disk = null): Jengo\\Storage\\Contracts\\FilesystemInterface|Jengo\\Storage\\FilesystemManager",
+      "description": "Retrieve the storage manager or a specific disk instance."
+    },
+    {
+      "name": "storage_url",
+      "signature": "storage_url(string $path, ?string $disk = null): string",
+      "description": "Get the public URL for a stored file."
+    },
+    {
+      "name": "storage_temporary_url",
+      "signature": "storage_temporary_url(string $path, int|DateTimeInterface $expiration, ?string $disk = null, array $options = []): string",
+      "description": "Generate a temporary signed URL for private file access."
+    }
+  ],
+  "commands": [
+    {
+      "name": "storage:link",
+      "command": "php spark storage:link",
+      "description": "Create a symbolic link from public/storage to writable/storage/app/public."
+    },
+    {
+      "name": "storage:cleanup",
+      "command": "php spark storage:cleanup [--hours=24]",
+      "description": "Purge expired signed upload chunks and temporary files."
+    }
+  ],
+  "installers": [
+    {
+      "class": "Jengo\\Storage\\Installers\\StorageInstaller",
+      "command": "php spark jengo:install storage",
+      "description": "Publishes app/Config/Storage.php and configures public storage symlink."
+    }
+  ]
+}
