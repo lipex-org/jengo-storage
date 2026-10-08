@@ -1,8 +1,22 @@
-# Jengo Storage
+<p align="center">
+  <a href="https://lipex-org.github.io/jengophp.com/">
+    <img src="https://raw.githubusercontent.com/lipex-org/docs/main/public/logo-full.png" width="220" alt="Jengo Logo">
+  </a>
+</p>
 
-Unified filesystem abstraction, asset management, universal signed URLs, chunked resumable uploads, and image processing pipeline for CodeIgniter 4 and the Jengo Framework.
+<h1 align="center">Jengo Storage</h1>
 
-Documentation: https://lipex-org.github.io/jengophp.com/packages/storage
+<p align="center">
+  <strong>Universal cloud storage subsystem for CodeIgniter 4 supporting S3, Cloudflare R2, MinIO, and Local disks with signed URLs, chunked uploads, and image transformations.</strong>
+</p>
+
+<p align="center">
+  <a href="https://lipex-org.github.io/jengophp.com/packages/storage"><strong>Documentation</strong></a> •
+  <a href="https://github.com/lipex-org/storage/blob/main/LICENSE"><strong>License</strong></a> •
+  <a href="https://github.com/lipex-org/storage/issues"><strong>Issues</strong></a>
+</p>
+
+---
 
 ## Features
 
