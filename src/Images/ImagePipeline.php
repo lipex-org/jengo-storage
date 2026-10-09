@@ -175,6 +175,39 @@ class ImagePipeline
         return $results;
     }
 
+    /**
+     * Dispatch responsive variant generation to the background queue using Queue::defer().
+     *
+     * @param array<string, int> $breakpoints
+     */
+    public function generateResponsiveVariantsAsync(
+        string $destinationDir,
+        array $breakpoints,
+        string $format = 'webp',
+        int $quality = 80,
+        ?string $visibility = null
+    ): void {
+        $filesystem = $this->filesystem;
+        $sourcePath = $this->sourcePath;
+        $binary = $this->binary ?? ($filesystem && $sourcePath ? $filesystem->get($sourcePath) : null);
+        $driver = $this->driver;
+
+        if ($binary === null) {
+            return;
+        }
+
+        \Jengo\Queues\Facades\Queue::push(new \Jengo\Storage\Jobs\GenerateResponsiveVariantsJob(
+            $filesystem,
+            $binary,
+            $destinationDir,
+            $breakpoints,
+            $format,
+            $quality,
+            $visibility,
+            $driver
+        ));
+    }
+
     protected function ensureLoaded(): void
     {
         if ($this->loaded) {

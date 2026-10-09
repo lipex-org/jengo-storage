@@ -6,14 +6,15 @@ namespace Jengo\Storage\Controllers;
 
 use CodeIgniter\Controller;
 use CodeIgniter\HTTP\ResponseInterface;
+use Jengo\Base\Container\Traits\HasContainer;
 use Jengo\Storage\Config\Storage as StorageConfig;
-use Jengo\Storage\Exceptions\InvalidSignatureException;
 use Jengo\Storage\Security\FileSanitizer;
 use Jengo\Storage\Security\HmacUrlSigner;
 use Jengo\Storage\Storage;
 
 class SignedStorageController extends Controller
 {
+    use HasContainer;
     /**
      * Handle local private signed downloads with HTTP Range support.
      */

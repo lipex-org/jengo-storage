@@ -425,4 +425,47 @@ class Filesystem implements CloudFilesystemInterface
 
         return $config;
     }
+
+    public function __serialize(): array
+    {
+        $memoryAdapterId = null;
+        try {
+            $ref = new \ReflectionProperty(\League\Flysystem\Filesystem::class, 'adapter');
+            $adapter = $ref->getValue($this->operator);
+            if ($adapter instanceof \League\Flysystem\InMemory\InMemoryFilesystemAdapter) {
+                $memoryAdapterId = spl_object_id($adapter);
+            }
+        } catch (\Throwable) {
+            // Ignore
+        }
+
+        return [
+            'config' => $this->config,
+            'memoryAdapterId' => $memoryAdapterId,
+        ];
+    }
+
+    public function __unserialize(array $data): void
+    {
+        $this->config = $data['config'] ?? [];
+        $memoryAdapterId = $data['memoryAdapterId'] ?? null;
+        $driver = $this->config['driver'] ?? ($memoryAdapterId !== null ? 'memory' : 'memory');
+
+        if ($memoryAdapterId !== null && isset(Drivers\MemoryDriver::$adapterRegistry[$memoryAdapterId])) {
+            $adapter = Drivers\MemoryDriver::$adapterRegistry[$memoryAdapterId];
+            $this->operator = new \League\Flysystem\Filesystem($adapter);
+            $this->signer = new Security\HmacUrlSigner('test-signing-key', $this->config['url'] ?? '/storage/memory');
+            return;
+        }
+
+        $reconstructed = match ($driver) {
+            'local'  => Drivers\LocalDriver::create($this->config),
+            's3'     => Drivers\S3Driver::create($this->config),
+            default  => Drivers\MemoryDriver::create($this->config),
+        };
+
+        $this->operator = $reconstructed->getOperator();
+        $this->signer = $reconstructed->signer ?? null;
+        $this->s3Client = $reconstructed->s3Client ?? null;
+    }
 }

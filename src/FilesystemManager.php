@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Jengo\Storage;
 
 use Closure;
+use Jengo\Base\Container\Traits\HasContainer;
 use Jengo\Storage\Config\Storage as StorageConfig;
 use Jengo\Storage\Contracts\FilesystemInterface;
 use Jengo\Storage\Drivers\LocalDriver;
@@ -15,6 +16,8 @@ use Jengo\Storage\Testing\StorageFake;
 
 class FilesystemManager
 {
+    use HasContainer;
+
     /**
      * Cache of resolved filesystem instances.
      *
@@ -114,7 +117,7 @@ class FilesystemManager
         $driver = $config['driver'] ?? 'local';
 
         if (isset($this->customCreators[$driver])) {
-            return $this->customCreators[$driver]($config, $this);
+            return $this->call($this->customCreators[$driver], ['config' => $config, 'manager' => $this]);
         }
 
         return match ($driver) {

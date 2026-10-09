@@ -129,4 +129,21 @@ class ImagePipelineTest extends TestCase
         $pipeline = ImagePipeline::fromBinary($this->sampleImageBinary);
         $this->assertInstanceOf(\Jengo\Storage\Contracts\ImageTransformerInterface::class, $pipeline->getTransformer());
     }
+
+    public function test_generates_responsive_variants_async(): void
+    {
+        $disk = MemoryDriver::create();
+        $disk->put('original_async.png', $this->sampleImageBinary);
+
+        $disk->image('original_async.png')->generateResponsiveVariantsAsync(
+            'async_thumbs',
+            ['sm' => 100, 'xs' => 50],
+            format: 'webp',
+            quality: 85
+        );
+
+        // Queue::defer executes immediately in synchronous test environment
+        $this->assertTrue($disk->exists('async_thumbs/variant_sm_100.webp'));
+        $this->assertTrue($disk->exists('async_thumbs/variant_xs_50.webp'));
+    }
 }

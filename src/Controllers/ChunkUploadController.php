@@ -6,14 +6,15 @@ namespace Jengo\Storage\Controllers;
 
 use CodeIgniter\Controller;
 use CodeIgniter\HTTP\ResponseInterface;
+use Jengo\Base\Container\Traits\HasContainer;
 use Jengo\Storage\Config\Storage as StorageConfig;
-use Jengo\Storage\Security\FileSanitizer;
 use Jengo\Storage\Storage;
 use RuntimeException;
 use Throwable;
 
 class ChunkUploadController extends Controller
 {
+    use HasContainer;
     /**
      * Base temporary directory path for storage staging.
      */

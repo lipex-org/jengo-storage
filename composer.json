@@ -13,6 +13,7 @@
     "php": "^8.2",
     "codeigniter4/framework": "^4.7",
     "jengo/base": "^1.1",
+    "jengo/queues": "^0.1 || dev-main",
     "league/flysystem": "^3.0",
     "league/flysystem-aws-s3-v3": "^3.0",
     "league/flysystem-memory": "^3.0"
